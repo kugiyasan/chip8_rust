@@ -1,8 +1,8 @@
 use display::Display;
 use memory::Memory;
 use rand::Rng;
-use std::io::Result;
-use std::{thread, time};
+use std::{io::Result, time::Instant};
+use std::{thread, time::Duration};
 
 use crate::display;
 use crate::memory;
@@ -10,6 +10,7 @@ use crate::memory;
 pub struct Chip8 {
     memory: memory::Memory,
     display: display::Display,
+    st_cooldown: Instant,
 }
 
 impl Chip8 {
@@ -17,6 +18,7 @@ impl Chip8 {
         Self {
             memory: Memory::new(),
             display: Display::new(),
+            st_cooldown: Instant::now(),
         }
     }
 
@@ -32,18 +34,32 @@ impl Chip8 {
 
     pub fn run(&mut self) {
         loop {
+            if self.memory.dt > 0 {
+                let time = Duration::from_secs_f64(self.memory.dt as f64 / 60.0);
+                self.memory.dt = 0;
+                thread::sleep(time);
+            }
+            if self.memory.st > 0
+                && Duration::from_secs_f64(1.0 / 60.0) < self.st_cooldown.elapsed()
+            {
+                self.st_cooldown = Instant::now();
+                print!("\\a");
+                self.memory.st -= 1;
+            }
+
             let instruction = self.get_next_instruction();
+            println!("Opcode: {:#06X} pc: {:#05X}", instruction, self.memory.pc);
 
             if instruction & 0xF000 == 0x1000 && instruction & 0x0FFF == self.memory.pc {
                 println!("Encountered an infinite loop, breaking from the loop");
                 break;
             }
-            
+
             self.execute_intruction(instruction);
             self.memory.pc += 2;
 
             // 1 / 500Hz = 2ms
-            thread::sleep(time::Duration::from_millis(2));
+            thread::sleep(Duration::from_millis(2));
         }
     }
 
@@ -56,14 +72,17 @@ impl Chip8 {
         let i = self.memory.i as usize;
 
         for n in 0..nibble {
-            let byte = self.memory.ram[i + 8 * n];
+            let byte = self.memory.ram[i + n];
 
-            for x in 0..8 {
-                let pixel = (byte >> (7 - x)) == 1;
-                if self.display.screen[vy + n][vx + x] && pixel {
+            for bit in 0..8 {
+                let pixel = (byte >> (7 - bit)) & 1 == 1;
+                let y = (vy + n) % self.display.height as usize;
+                let x = (vx + bit) % self.display.width as usize;
+
+                if self.display.screen[y][x] && pixel {
                     self.memory.v[0xF] = 1;
                 }
-                self.display.screen[vy + n][vx + x] ^= pixel;
+                self.display.screen[y][x] ^= pixel;
             }
         }
         self.display.print_screen();
@@ -74,8 +93,8 @@ impl Chip8 {
 
         let nnn = instruction & 0x0FFF;
         let n = (instruction & 0x000F) as u8;
-        let x = (instruction & 0x0F00 >> 8) as usize;
-        let y = (instruction & 0x00F0 >> 4) as usize;
+        let x = ((instruction & 0x0F00) >> 8) as usize;
+        let y = ((instruction & 0x00F0) >> 4) as usize;
         let kk = (instruction & 0x00FF) as u8;
 
         match instruction & 0xF000 {
@@ -157,7 +176,15 @@ impl Chip8 {
                 0x0018 => mem.st = mem.v[x],
                 0x001E => mem.i += mem.v[x] as u16,
                 0x0029 => mem.i = mem.v[x] as u16 * 5,
-                0x0033 => (), // !
+                0x0033 => {
+                    let i = mem.i as usize;
+                    let mut value = mem.v[x];
+                    mem.ram[i + 2] = value % 10;
+                    value /= 10;
+                    mem.ram[i + 1] = value % 10;
+                    value /= 10;
+                    mem.ram[i] = value
+                }
                 0x0055 => {
                     for i in 0..x {
                         mem.ram[mem.i as usize + i] = mem.v[i];

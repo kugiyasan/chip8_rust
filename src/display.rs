@@ -15,26 +15,20 @@ impl Display {
     }
 
     pub fn print_screen(&self) {
-        // for row in self.screen {
-        //     for &cell in row {
-        //         let result = if cell { "■" } else { " " };
-        //         print!("{}", result);
-        //     }
-        //     println!();
-        // }
         let data = self
             .screen
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|&cell| if cell { "■■" } else { "**" })
+                    .map(|&cell| if cell { "@@" } else { ".." })
                     .collect::<Vec<_>>()
                     .join("")
             })
             .collect::<Vec<_>>()
             .join("\n");
 
-        println!("\u{001b}[{}A", self.height + 1);
+        // Move the cursor up to overwrite the previous frame
+        // println!("\u{001b}[{}A", self.height + 1);
         println!("{}", data);
     }
 

@@ -2,21 +2,21 @@ use std::fs::File;
 use std::io::{Read, Result};
 
 pub struct Memory {
-    // The ram allocated for the program
+    /// The ram allocated for the program
     pub ram: [u8; 4096],
-    // v contains 16 general purpose 8-bit registers
+    /// v contains 16 general purpose 8-bit registers
     pub v: [u8; 16],
-    // i stores the memory addresses
+    /// i stores the memory addresses
     pub i: u16,
-    // dt is the delay timer
+    /// dt is the delay timer
     pub dt: u8,
-    // st is the sound timer
+    /// st is the sound timer
     pub st: u8,
-    // pc is the program counter
+    /// pc is the program counter
     pub pc: u16,
-    // sp is the stack pointer
+    /// sp is the stack pointer
     pub sp: u8,
-    // The stack stores the addresses of the running subroutines
+    /// The stack stores the addresses of the running subroutines
     pub stack: [u16; 16],
 }
 
